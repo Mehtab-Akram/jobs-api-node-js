@@ -24,18 +24,18 @@ const userSchema = new mongoose.Schema({
         minlength: 3,
     }
 })
-//Mongoose middleware 
+//Mongoose middleware
 userSchema.pre('save', async function (next) {
     const salt = await bcrypt.genSalt(10)
     this.password = await bcrypt.hash(this.password, salt)
-    next();
+    next()
 })
-//Mongoose Schema methods are used to add functionality like generating a JWT Token when the user is registered.
-userSchema.methods.generateJWT = function () {
-    return jwt.sign({ name: this.name, id: this._id }, process.env.JWT_SECRET, { expiresIn: process.env.EXPIRES_IN })
+// Mongoose instance methods
+userSchema.methods.createToken = function () {
+    return jwt.sign({ id: this._id, name: this.name ,email:this.email,password:this.password},process.env.JWT_SECRET,{expiresIn:'30d'})
 }
-userSchema.methods.comparePassword = async function (providedPassword) {
+userSchema.methods.comparePasswords = async function (providedPassword) {
     const isMatch = await bcrypt.compare(providedPassword, this.password)
-    return isMatch
+    return isMatch;
 }
 module.exports = mongoose.model('User',userSchema)

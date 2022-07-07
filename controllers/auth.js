@@ -2,38 +2,35 @@ const { StatusCodes } = require('http-status-codes')
 const BadRequestError = require('../errors/bad-request')
 const user = require('../models/User')
 const bcrypt = require('bcryptjs')
+const jwt = require('jsonwebtoken')
 const { UnauthenticatedError } = require('../errors')
+require('dotenv').config()
 
 
 const login = async (req, res) => {
-
     const { email, password } = req.body
-    if (!email || !password) {
-        throw new BadRequestError("Invalid Credentials.")
+    // if (!email || !password) {
+    //     throw new BadRequestError('Please provide email and password.')
+    // }
+    const userData = await user.findOne({ email })
+    if (!userData) {
+        throw new UnauthenticatedError('User does not exist. Please verify username/password.')
     }
-    const getUser = await user.findOne({ email })
+    if (! await userData.comparePasswords(password))
+    {
+        throw new UnauthenticatedError('Email or Password does not match. Please verify email/password.')
+    }
+    const token = userData.createToken()
+    res.status(StatusCodes.OK).json({ user: { id: userData._id, name: userData.name }, token})
 
-    if (!getUser) {
-        throw new UnauthenticatedError("Username or password is not correct.")
-    }
-    //compare password
-    const isMatch = await getUser.comparePassword(password)
-    if (!isMatch) {
-        throw new UnauthenticatedError("Username or password is not correct.")
-    }
-
-    const token = getUser.generateJWT()
-    res.status(StatusCodes.OK).json({ user: { email: getUser.email }, token })
 }
 const register = async (req, res) => {
+    
+    const savedUser = await user.create({ ... req.body })
 
-    //All the hashing functionality has been moved to async mongoose middle ware written in userModel
-
-    const savedUser = await user.create({ ...req.body });
-
-
-    res.status(StatusCodes.CREATED).json({ user: { name: savedUser.name }, token: savedUser.generateJWT() });
-
+    const token = jwt.sign({name: savedUser.name,email: savedUser.email,password: savedUser.password }, process.env.JWT_SECRET)
+    
+    res.status(StatusCodes.CREATED).json({ savedUser , token});
 
 }
 
